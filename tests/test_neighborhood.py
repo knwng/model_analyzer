@@ -1,0 +1,145 @@
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from model_analyzer.config.generate.neighborhood import Neighborhood
+from model_analyzer.config.generate.search_config import SearchConfig
+from model_analyzer.config.generate.search_dimension import SearchDimension
+from model_analyzer.config.generate.result_data import ResultData
+
+from .common import test_result_collector as trc
+
+
+class TestNeighborhood(trc.TestResultCollector):
+
+    def test_calc_distance(self):
+        a = [1, 4, 6, 3]
+        b = [4, 2, 6, 0]
+
+        # Euclidian distance is the square root of the
+        # sum of the distances of the coordinates
+        #
+        # Distance = sqrt( (1-4)^2 + (4-2)^2 + (6-6)^2 + (3-0)^2)
+        # Distance = sqrt( 9 + 4 + 0 + 9 )
+        # Distance = sqrt(22)
+        # Distance = 4.69
+        self.assertAlmostEqual(Neighborhood.calc_distance(a, b), 4.69, places=3)
+
+    def test_create_neighborhood(self):
+        rd = ResultData()
+
+        sc = SearchConfig([
+            SearchDimension("foo", SearchDimension.DIMENSION_TYPE_LINEAR),
+            SearchDimension("bar", SearchDimension.DIMENSION_TYPE_EXPONENTIAL),
+            SearchDimension("foobar",
+                            SearchDimension.DIMENSION_TYPE_EXPONENTIAL)
+        ])
+        n = Neighborhood(sc, rd, [1, 1, 1], 2)
+
+        # These are all values within radius of 2 from [1,1,1]
+        # but within the bounds (no negative values)
+        #
+        expected_neighborhood = [[0, 0, 0], [0, 0, 1], [0, 0, 2], [0, 1, 0],
+                                 [0, 1, 1], [0, 1, 2], [0, 2, 0], [0, 2, 1],
+                                 [0, 2, 2], [1, 0, 0], [1, 0, 1], [1, 0, 2],
+                                 [1, 1, 0], [1, 1, 1], [1, 1, 2], [1, 1, 3],
+                                 [1, 2, 0], [1, 2, 1], [1, 2, 2], [1, 3, 1],
+                                 [2, 0, 0], [2, 0, 1], [2, 0, 2], [2, 1, 0],
+                                 [2, 1, 1], [2, 1, 2], [2, 2, 0], [2, 2, 1],
+                                 [2, 2, 2], [3, 1, 1]]
+
+        self.assertEqual(tuple(n._neighborhood), tuple(expected_neighborhood))
+
+    def test_num_initialized(self):
+        rd = ResultData()
+        rd.set_throughput([0, 0, 0], 5)
+
+        sc = SearchConfig([
+            SearchDimension("foo", SearchDimension.DIMENSION_TYPE_LINEAR),
+            SearchDimension("bar", SearchDimension.DIMENSION_TYPE_EXPONENTIAL),
+            SearchDimension("foobar",
+                            SearchDimension.DIMENSION_TYPE_EXPONENTIAL)
+        ])
+        n = Neighborhood(sc, rd, [1, 1, 1], 2)
+
+        # Started with 1 initialized
+        self.assertEqual(1, n.get_num_initialized_points())
+
+        rd.set_throughput([0, 0, 1], 5)
+        self.assertEqual(2, n.get_num_initialized_points())
+
+        # Set same point. No change to num initialized
+        rd.set_throughput([0, 0, 1], 7)
+        self.assertEqual(2, n.get_num_initialized_points())
+
+        # Set a point outside of neighborhood
+        rd.set_throughput([0, 0, 4], 3)
+        self.assertEqual(2, n.get_num_initialized_points())
+
+    def test_calculate_new_coordinate_one_dimension(self):
+        """ 
+        Test calculate_new_coordinate for a case where only
+        one of the dimensions increases the throughput
+        """
+        rd = ResultData()
+        rd.set_throughput([0, 0], 2)
+        rd.set_throughput([1, 0], 4)
+        rd.set_throughput([0, 1], 2)
+
+        sc = SearchConfig([
+            SearchDimension("foo", SearchDimension.DIMENSION_TYPE_LINEAR),
+            SearchDimension("bar", SearchDimension.DIMENSION_TYPE_EXPONENTIAL)
+        ])
+
+        n = Neighborhood(sc, rd, [0, 0], 2)
+
+        self.assertEqual([1, 0], n.calculate_new_coordinate(1))
+
+    def test_calculate_new_coordinate_two_dimensions(self):
+        """ 
+        Test calculate_new_coordinate for a case where both of the 
+        dimensions increases the throughput equally
+        """
+        rd = ResultData()
+        rd.set_throughput([0, 0], 2)
+        rd.set_throughput([1, 0], 4)
+        rd.set_throughput([0, 1], 4)
+
+        sc = SearchConfig([
+            SearchDimension("foo", SearchDimension.DIMENSION_TYPE_LINEAR),
+            SearchDimension("bar", SearchDimension.DIMENSION_TYPE_EXPONENTIAL)
+        ])
+
+        n = Neighborhood(sc, rd, [0, 0], 2)
+        magnitude = 1
+        self.assertEqual([1, 1], n.calculate_new_coordinate(magnitude))
+
+    def test_calculate_new_coordinate_larger_magnitude(self):
+        """ 
+        Test calculate_new_coordinate for a case where both of the 
+        dimensions increases the throughput equally, and magnitude is 
+        larger than 1
+        """
+        rd = ResultData()
+        rd.set_throughput([0, 0], 2)
+        rd.set_throughput([1, 0], 4)
+        rd.set_throughput([0, 1], 4)
+
+        sc = SearchConfig([
+            SearchDimension("foo", SearchDimension.DIMENSION_TYPE_LINEAR),
+            SearchDimension("bar", SearchDimension.DIMENSION_TYPE_EXPONENTIAL)
+        ])
+
+        n = Neighborhood(sc, rd, [0, 0], 2)
+        magnitude = 3
+        self.assertEqual([2, 2], n.calculate_new_coordinate(magnitude))
