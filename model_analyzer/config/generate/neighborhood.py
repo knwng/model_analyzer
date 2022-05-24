@@ -14,6 +14,9 @@
 
 import math
 from itertools import product
+from copy import deepcopy
+
+from model_analyzer.config.generate.coordinate import Coordinate
 
 
 class Neighborhood:
@@ -37,7 +40,7 @@ class Neighborhood:
         """
 
         distance = 0
-        for i in range(len(coordinate1)):
+        for i, v in enumerate(coordinate1):
             diff = coordinate1[i] - coordinate2[i]
             distance += math.pow(diff, 2)
         distance = math.sqrt(distance)
@@ -58,21 +61,29 @@ class Neighborhood:
         """
         Based on the throughputs in the neighborhood, determine where
         the next location should be
+
+        magnitude: int
+            How large of a step to take
+
+        returns: coordinate
         """
+        unit_vector = self._get_unit_vector()
+
+        new_coordinate = self._home_coordinate + round(unit_vector * magnitude)
+
+        return new_coordinate
+
+    def _get_unit_vector(self):
         coordinates, throughputs = self._compile_neighborhood_results()
 
         coordinate_center = self._determine_coordinate_center(coordinates)
         throughput_center = self._determine_weighted_coordinate_center(
             coordinates, throughputs)
-        vector = self._calculate_vector(coordinate_center, throughput_center)
 
-        unit_vector = self._get_unit_vector(vector)
+        vector = throughput_center - coordinate_center
 
-        new_coordinate = []
-        for i in range(len(unit_vector)):
-            new_coordinate.append(self._home_coordinate[i] +
-                                  round(unit_vector[i] * magnitude))
-        return new_coordinate
+        unit_vector = self._convert_to_unit_vector(vector)
+        return unit_vector
 
     def _compile_neighborhood_results(self):
         coordinates = []
@@ -80,52 +91,48 @@ class Neighborhood:
         for coordinate in self._neighborhood:
             throughput = self._result_data.get_throughput(coordinate)
             if throughput is not None:
-                coordinates.append(coordinate)
+                coordinates.append(deepcopy(coordinate))
                 results.append(throughput)
         return coordinates, results
 
     def _determine_coordinate_center(self, coordinates):
-        coordinate_center = [
-            0 for i in range(self._search_config.get_num_dimensions())
-        ]
+        coordinate_center = Coordinate([0] *
+                                       self._search_config.get_num_dimensions())
+
         for coordinate in coordinates:
-            for i in range(len(coordinate_center)):
-                coordinate_center[i] += 1.0 * coordinate[i]
-        for i in range(len(coordinate_center)):
-            coordinate_center[i] /= len(coordinates)
+            coordinate_center += coordinate
+
+        num_coordinates = len(coordinates)
+        coordinate_center /= num_coordinates
+
         return coordinate_center
 
     def _determine_weighted_coordinate_center(self, coordinates, weights):
-        weighted_center = [
-            0 for i in range(self._search_config.get_num_dimensions())
-        ]
-        for i in range(len(coordinates)):
-            for j in range(len(weighted_center)):
-                weighted_center[j] += float(weights[i]) * coordinates[i][j]
+        weighted_center = Coordinate([0] *
+                                     self._search_config.get_num_dimensions())
+
+        for i, _ in enumerate(weights):
+            weighted_center += coordinates[i] * weights[i]
+
         weights_sum = sum(weights)
-        for i in range(len(weighted_center)):
-            weighted_center[i] /= weights_sum
+
+        weighted_center /= weights_sum
+
         return weighted_center
 
-    def _calculate_vector(self, v1, v2):
-        vector = []
-        for i in range(len(v1)):
-            vector.append(v2[i] - v1[i])
-        return vector
-
-    def _get_unit_vector(self, vector):
+    def _convert_to_unit_vector(self, vector):
         magnitude = 0
         for v in vector:
             magnitude += math.pow(v, 2)
         magnitude = math.sqrt(magnitude)
-        print(f"TKG: magnitude is {magnitude}")
+
         # Convert the vector to unit vector
         if magnitude == 0:
             # FIXME
             raise Exception("Unhandled case of no resulting magnitude")
-        unit_vector = []
-        for v in vector:
-            unit_vector.append(v / magnitude)
+
+        unit_vector = vector / magnitude
+
         return unit_vector
 
     def _create_neighborhood(self):
@@ -145,7 +152,8 @@ class Neighborhood:
 
     def _get_potential_neighborhood(self, coordinate, radius):
         bounds = self._get_bounds(coordinate, radius)
-        return self._enumerate_all_values_in_bounds(bounds)
+        potential_values = self._enumerate_all_values_in_bounds(bounds)
+        return [Coordinate(x) for x in potential_values]
 
     def _get_bounds(self, coordinate, radius):
         bounds = []

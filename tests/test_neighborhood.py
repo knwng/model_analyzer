@@ -16,6 +16,7 @@ from model_analyzer.config.generate.neighborhood import Neighborhood
 from model_analyzer.config.generate.search_config import SearchConfig
 from model_analyzer.config.generate.search_dimension import SearchDimension
 from model_analyzer.config.generate.result_data import ResultData
+from model_analyzer.config.generate.coordinate import Coordinate
 
 from .common import test_result_collector as trc
 
@@ -23,8 +24,8 @@ from .common import test_result_collector as trc
 class TestNeighborhood(trc.TestResultCollector):
 
     def test_calc_distance(self):
-        a = [1, 4, 6, 3]
-        b = [4, 2, 6, 0]
+        a = Coordinate([1, 4, 6, 3])
+        b = Coordinate([4, 2, 6, 0])
 
         # Euclidian distance is the square root of the
         # sum of the distances of the coordinates
@@ -44,7 +45,7 @@ class TestNeighborhood(trc.TestResultCollector):
             SearchDimension("foobar",
                             SearchDimension.DIMENSION_TYPE_EXPONENTIAL)
         ])
-        n = Neighborhood(sc, rd, [1, 1, 1], 2)
+        n = Neighborhood(sc, rd, Coordinate([1, 1, 1]), 2)
 
         # These are all values within radius of 2 from [1,1,1]
         # but within the bounds (no negative values)
@@ -58,11 +59,12 @@ class TestNeighborhood(trc.TestResultCollector):
                                  [2, 1, 1], [2, 1, 2], [2, 2, 0], [2, 2, 1],
                                  [2, 2, 2], [3, 1, 1]]
 
-        self.assertEqual(tuple(n._neighborhood), tuple(expected_neighborhood))
+        expected_coordinates = [Coordinate(x) for x in expected_neighborhood]
+        self.assertEqual(tuple(n._neighborhood), tuple(expected_coordinates))
 
     def test_num_initialized(self):
         rd = ResultData()
-        rd.set_throughput([0, 0, 0], 5)
+        rd.set_throughput(Coordinate([0, 0, 0]), 5)
 
         sc = SearchConfig([
             SearchDimension("foo", SearchDimension.DIMENSION_TYPE_LINEAR),
@@ -70,21 +72,53 @@ class TestNeighborhood(trc.TestResultCollector):
             SearchDimension("foobar",
                             SearchDimension.DIMENSION_TYPE_EXPONENTIAL)
         ])
-        n = Neighborhood(sc, rd, [1, 1, 1], 2)
+        n = Neighborhood(sc, rd, Coordinate([1, 1, 1]), 2)
 
         # Started with 1 initialized
         self.assertEqual(1, n.get_num_initialized_points())
 
-        rd.set_throughput([0, 0, 1], 5)
+        rd.set_throughput(Coordinate([0, 0, 1]), 5)
         self.assertEqual(2, n.get_num_initialized_points())
 
         # Set same point. No change to num initialized
-        rd.set_throughput([0, 0, 1], 7)
+        rd.set_throughput(Coordinate([0, 0, 1]), 7)
         self.assertEqual(2, n.get_num_initialized_points())
 
         # Set a point outside of neighborhood
-        rd.set_throughput([0, 0, 4], 3)
+        rd.set_throughput(Coordinate([0, 0, 4]), 3)
         self.assertEqual(2, n.get_num_initialized_points())
+
+    def test_weighted_center(self):
+        sc = SearchConfig([
+            SearchDimension("foo", SearchDimension.DIMENSION_TYPE_LINEAR),
+            SearchDimension("bar", SearchDimension.DIMENSION_TYPE_EXPONENTIAL),
+            SearchDimension("foobar",
+                            SearchDimension.DIMENSION_TYPE_EXPONENTIAL)
+        ])
+        rd = ResultData()
+
+        n = Neighborhood(sc, rd, Coordinate([1, 1, 1]), 2)
+
+        coordinates = [
+            Coordinate([2, 0, 0]),
+            Coordinate([0, 1, 0]),
+            Coordinate([0, 0, 1])
+        ]
+        weights = [2, 1, 4]
+
+        weighted_center = n._determine_weighted_coordinate_center(
+            coordinates, weights)
+
+        # Weighted center
+        #   First multiply each coordinate by its weights:
+        #      [4,0,0], [0,1,0], [0,0,4]
+        #   Then sum up the coordinates:
+        #      [4,1,4]
+        #   Then divide by sum of weights (2+1+4=7)
+        #      [4/7, 1/7, 4/7]
+        expected_weighted_center = Coordinate([4 / 7, 1 / 7, 4 / 7])
+
+        self.assertEqual(weighted_center, expected_weighted_center)
 
     def test_calculate_new_coordinate_one_dimension(self):
         """ 
@@ -92,18 +126,18 @@ class TestNeighborhood(trc.TestResultCollector):
         one of the dimensions increases the throughput
         """
         rd = ResultData()
-        rd.set_throughput([0, 0], 2)
-        rd.set_throughput([1, 0], 4)
-        rd.set_throughput([0, 1], 2)
+        rd.set_throughput(Coordinate([0, 0]), 2)
+        rd.set_throughput(Coordinate([1, 0]), 4)
+        rd.set_throughput(Coordinate([0, 1]), 2)
 
         sc = SearchConfig([
             SearchDimension("foo", SearchDimension.DIMENSION_TYPE_LINEAR),
             SearchDimension("bar", SearchDimension.DIMENSION_TYPE_EXPONENTIAL)
         ])
 
-        n = Neighborhood(sc, rd, [0, 0], 2)
+        n = Neighborhood(sc, rd, Coordinate([0, 0]), 2)
 
-        self.assertEqual([1, 0], n.calculate_new_coordinate(1))
+        self.assertEqual(Coordinate([1, 0]), n.calculate_new_coordinate(1))
 
     def test_calculate_new_coordinate_two_dimensions(self):
         """ 
@@ -111,18 +145,19 @@ class TestNeighborhood(trc.TestResultCollector):
         dimensions increases the throughput equally
         """
         rd = ResultData()
-        rd.set_throughput([0, 0], 2)
-        rd.set_throughput([1, 0], 4)
-        rd.set_throughput([0, 1], 4)
+        rd.set_throughput(Coordinate([0, 0]), 2)
+        rd.set_throughput(Coordinate([1, 0]), 4)
+        rd.set_throughput(Coordinate([0, 1]), 4)
 
         sc = SearchConfig([
             SearchDimension("foo", SearchDimension.DIMENSION_TYPE_LINEAR),
             SearchDimension("bar", SearchDimension.DIMENSION_TYPE_EXPONENTIAL)
         ])
 
-        n = Neighborhood(sc, rd, [0, 0], 2)
+        n = Neighborhood(sc, rd, Coordinate([0, 0]), 2)
         magnitude = 1
-        self.assertEqual([1, 1], n.calculate_new_coordinate(magnitude))
+        self.assertEqual(Coordinate([1, 1]),
+                         n.calculate_new_coordinate(magnitude))
 
     def test_calculate_new_coordinate_larger_magnitude(self):
         """ 
@@ -131,15 +166,20 @@ class TestNeighborhood(trc.TestResultCollector):
         larger than 1
         """
         rd = ResultData()
-        rd.set_throughput([0, 0], 2)
-        rd.set_throughput([1, 0], 4)
-        rd.set_throughput([0, 1], 4)
+        rd.set_throughput(Coordinate([0, 0]), 2)
+        rd.set_throughput(Coordinate([1, 0]), 4)
+        rd.set_throughput(Coordinate([0, 1]), 4)
 
         sc = SearchConfig([
             SearchDimension("foo", SearchDimension.DIMENSION_TYPE_LINEAR),
             SearchDimension("bar", SearchDimension.DIMENSION_TYPE_EXPONENTIAL)
         ])
 
-        n = Neighborhood(sc, rd, [0, 0], 2)
+        n = Neighborhood(sc, rd, Coordinate([0, 0]), 2)
         magnitude = 3
-        self.assertEqual([2, 2], n.calculate_new_coordinate(magnitude))
+
+        # Run it multiple times to make sure no values are changing
+        self.assertEqual(Coordinate([2, 2]),
+                         n.calculate_new_coordinate(magnitude))
+        self.assertEqual(Coordinate([2, 2]),
+                         n.calculate_new_coordinate(magnitude))

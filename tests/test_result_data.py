@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from model_analyzer.config.generate.result_data import ResultData
+from model_analyzer.config.generate.coordinate import Coordinate
+
 from .common import test_result_collector as trc
 
 
@@ -21,15 +23,15 @@ class TestResultData(trc.TestResultCollector):
     def test_basic(self):
         result_data = ResultData()
 
-        coordinate = [0, 0, 0]
+        coordinate = Coordinate([0, 0, 0])
         self.assertEqual(result_data.get_throughput(coordinate), None)
         self.assertEqual(result_data.get_visit_count(coordinate), 0)
 
     def test_throughput(self):
         result_data = ResultData()
 
-        coordinate1 = [0, 0, 0]
-        coordinate2 = [0, 4, 1]
+        coordinate1 = Coordinate([0, 0, 0])
+        coordinate2 = Coordinate([0, 4, 1])
 
         result_data.set_throughput(coordinate1, 7)
         result_data.set_throughput(coordinate2, 9)
@@ -44,8 +46,8 @@ class TestResultData(trc.TestResultCollector):
     def test_visit_count(self):
         result_data = ResultData()
 
-        coordinate1 = [0, 0, 0]
-        coordinate2 = [0, 4, 1]
+        coordinate1 = Coordinate([0, 0, 0])
+        coordinate2 = Coordinate([0, 4, 1])
 
         result_data.increment_visit_count(coordinate1)
         self.assertEqual(1, result_data.get_visit_count(coordinate1))
