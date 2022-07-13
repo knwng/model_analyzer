@@ -208,7 +208,7 @@ class PerfAnalyzer:
         return cmd
 
     def _get_single_model_cmd(self, index):
-        cmd = [self.bin_path]
+        cmd = [self.bin_path, '-v']
         if self._is_multi_model():
             cmd += ["--enable-mpi"]
         cmd += self._get_pa_cli_command(index).replace('=', ' ').split()
@@ -388,6 +388,7 @@ class PerfAnalyzer:
                 csv_reader = csv.DictReader(f, delimiter=',')
 
                 for row in csv_reader:
+                    logger.debug(f"Row is {row}")
                     self._perf_records[perf_config[
                         'model-name']] = self._extract_metrics_from_row(
                             metrics, row)
