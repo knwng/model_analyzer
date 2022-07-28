@@ -209,9 +209,11 @@ class PerfAnalyzer:
 
     def _get_single_model_cmd(self, index):
         cmd = [self.bin_path]
+        cmd += ["-v"]
         if self._is_multi_model():
             cmd += ["--enable-mpi"]
         cmd += self._get_pa_cli_command(index).replace('=', ' ').split()
+        cmd += ["--percentile", '99']
         return cmd
 
     def _get_pa_cli_command(self, index):
@@ -295,6 +297,7 @@ class PerfAnalyzer:
 
             return self.PA_FAIL
 
+        print(self._output)
         return self.PA_SUCCESS
 
     def _get_process_output(self):
