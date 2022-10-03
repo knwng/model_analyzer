@@ -79,7 +79,7 @@ class QuickPlusConcurrencySweepRunConfigGenerator(ConfigGeneratorInterface):
     def set_last_results(
             self, measurements: List[Optional[RunConfigMeasurement]]) -> None:
         self._rcg.set_last_results(measurements)
-
+ 
     def get_configs(self) -> Generator[RunConfig, None, None]:
         """
         Returns

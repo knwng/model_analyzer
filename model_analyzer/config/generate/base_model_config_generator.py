@@ -212,7 +212,7 @@ class BaseModelConfigGenerator(ConfigGeneratorInterface):
         model_config.set_cpu_only(model.cpu_only())
 
         return model_config
-
+ 
     def _reset_max_batch_size(self) -> None:
         self._max_batch_size_warning_printed = False
         self._curr_max_batch_size_throughputs = []

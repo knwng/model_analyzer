@@ -15,7 +15,7 @@
 from typing import List, Generator, Optional, Dict
 
 from model_analyzer.config.run.model_run_config import ModelRunConfig
-
+ 
 from .config_generator_interface import ConfigGeneratorInterface
 from model_analyzer.config.run.run_config import RunConfig
 from model_analyzer.model_analyzer_exceptions import TritonModelAnalyzerException

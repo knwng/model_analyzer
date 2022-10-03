@@ -93,7 +93,7 @@ class AutomaticModelConfigGenerator(BaseModelConfigGenerator):
 
     def _step_instance_count(self) -> None:
         self._curr_instance_count += 1
-
+ 
     def _done_walking_max_batch_size(self) -> bool:
         if self._last_results_erroneous():
             return True

@@ -310,7 +310,7 @@ class QuickRunConfigGenerator(ConfigGeneratorInterface):
             model=self._models[model_num],
             model_variant_name_manager=self._model_variant_name_manager)
         return model_config
-
+ 
     def _get_next_perf_analyzer_config(self, model_variant_name: str,
                                        model_num: int) -> PerfAnalyzerConfig:
         dimension_values = self._get_coordinate_values(

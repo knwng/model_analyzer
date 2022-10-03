@@ -21,7 +21,7 @@ from model_analyzer.config.generate.model_variant_name_manager import ModelVaria
 from .model_profile_spec import ModelProfileSpec
 from typing import List
 from .config_generator_interface import ConfigGeneratorInterface
-
+ 
 class ModelConfigGeneratorFactory:
     """
     Factory that creates the correct Config Generators

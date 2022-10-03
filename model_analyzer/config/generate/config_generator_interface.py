@@ -15,7 +15,7 @@
 import abc
 from typing import List, Optional, Generator, Any
 from model_analyzer.result.run_config_measurement import RunConfigMeasurement
-
+ 
 class ConfigGeneratorInterface(abc.ABC):
     """
     An interface class for config generators
